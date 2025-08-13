@@ -1,8 +1,15 @@
-from fastapi import FastAPI, Request, HTTPException
-from pydantic import BaseModel
+from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
+
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+
+from database import get_db
+from daVinciCode_models import DaVinciCodeResult
+import daVinciCode_schema as schemas
+
 import random
 
 app = FastAPI()
@@ -20,11 +27,7 @@ max_num = 100
 min_num = 1
 guess_time = 0
 
-# 定義前端送過來的資料格式
-class GuessRequest(BaseModel):
-	guess: int	# 前端要傳入的數字欄位
-
-
+# 例外處理 ====================
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
 	return JSONResponse(
@@ -34,6 +37,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 			"errors": exc.errors(),
 		},
 	)
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):
 	# 可以寫 log
@@ -41,23 +45,35 @@ async def global_exception_handler(request, exc):
 	    status_code=500,
 	    content={"message": "伺服器內部錯誤，請稍後再試"},
 	)
+# ===============================
 
-
-@app.get('/resetGame')
-def reset():
+@app.get('/resetGame', response_model=schemas.DaVinciCodeResultBase)
+async def reset(db: AsyncSession = Depends(get_db)):
 	global guess_time, min_num, max_num, guess_num
+	result = await db.execute(
+		select(DaVinciCodeResult).order_by(DaVinciCodeResult.guess_time.asc()).limit(1)
+	)
+	best = result.scalar_one_or_none()
+
+	if not best:
+		best = '尚無紀錄'
+
 	guess_num = random.randint(0, 100)
 	max_num = 100
 	min_num = 1
 	guess_time = 0
-	return ({
+	return {
 		'message': 'START',
 		'tips': f'select number {min_num} to {max_num} .',
 		'max_num': max_num,
 		'guess_time': guess_time,
+		'best_time': best,
 		'statusCode': 1
-	})
+	}
 
+# 前端送的猜測資料格式
+class GuessRequest(schemas.DaVinciCodeResultCreate):
+	guess: int
 
 @app.post('/guessGame')
 def guess_game(data: GuessRequest):
@@ -66,31 +82,31 @@ def guess_game(data: GuessRequest):
 	user_guess = data.guess
 
 	if user_guess < min_num or user_guess > max_num:
-		return ({
+		return {
 			'message': '?????',
 			'tips': f'select number {min_num} to {max_num} .',
 			'guess_time': guess_time,
 			'statusCode': 1
-		})
+		}
 
 	guess_time += 1
 
 	if user_guess == guess_num:
-		return ({
+		return {
 			'tips': f'BOOOOM! the number is {guess_num}. you got {guess_time} safe time！',
 			'message': 'BOOOM',
 			'status': 'boom',
 			'guess_num': guess_num,
 			'guess_time': guess_time,
 			'statusCode': 1
-		})
-	elif user_guess < guess_num or user_guess > guess_num:
+		}
+	else:
 		if user_guess < guess_num:
 			min_num = user_guess
-		elif user_guess > guess_num:
+		else:
 			max_num = user_guess
 
-		return ({
+		return {
 			'message': 'SAFE',
 			'tips': f'select number {min_num} to {max_num} .',
 			'status': 'safe',
@@ -98,4 +114,16 @@ def guess_game(data: GuessRequest):
 			'max_num': max_num,
 			'guess_time': guess_time,
 			'statusCode': 1
-		})
+		}
+
+# [4] 遊戲結束後新增紀錄
+@app.post("/addRecord", response_model=schemas.DaVinciCodeResultResponse)
+async def add_record(record: schemas.DaVinciCodeResultCreate, db: AsyncSession = Depends(get_db)):
+	new_record = DaVinciCodeResult(
+		name=record.name,
+		guess_time=record.guess_time,
+	)
+	db.add(new_record)
+	await db.commit()
+	await db.refresh(new_record)
+	return new_record

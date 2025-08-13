@@ -13,6 +13,16 @@ class DaVinciCodeResultBase(BaseModel):
 	class Config:
 		from_attributes = True  # 讓 Pydantic 支援 SQLAlchemy ORM 物件
 
+
+class ResetGameResponse(BaseModel):
+    message: str
+    tips: str
+    max_num: int
+    guess_time: int
+    best_time: Optional[DaVinciCodeResultBase] = None
+    statusCode: int
+
+
 # 新增紀錄用（遊戲結束時傳給後端）
 class DaVinciCodeResultCreate(BaseModel):
 	name: str

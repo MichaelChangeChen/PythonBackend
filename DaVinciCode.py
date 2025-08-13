@@ -47,7 +47,7 @@ async def global_exception_handler(request, exc):
 	)
 # ===============================
 
-@app.get('/resetGame', response_model=schemas.DaVinciCodeResultBase)
+@app.get('/resetGame', response_model=schemas.ResetGameResponse)
 async def reset(db: AsyncSession = Depends(get_db)):
 	global guess_time, min_num, max_num, guess_num
 	result = await db.execute(
@@ -55,17 +55,6 @@ async def reset(db: AsyncSession = Depends(get_db)):
 	)
 	best = result.scalar_one_or_none()
 	best_time = schemas.DaVinciCodeResultBase.from_orm(best) if best else None
-
-	# if not best:
-	# 	best_time = None
-	# else:
-	# 	best_time = {
-	# 		"id": best.id,
-	# 		"name": best.name,
-	# 		"guess_time": best.guess_time,
-	# 		"play_date": best.play_date
-	# 	}
-
 
 	guess_num = random.randint(0, 100)
 	max_num = 100

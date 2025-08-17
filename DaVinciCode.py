@@ -33,7 +33,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 	return JSONResponse(
 		status_code=422,
 		content={
-			"message": "錯誤",
+			"message": "error~",
 			"errors": exc.errors(),
 		},
 	)
@@ -62,7 +62,7 @@ async def check_name(
 		}
 	else:
 		return {
-			'message': '你名字很棒耶',
+			'message': 'What a owson name!',
 			'statusCode': 1
 		}
 
@@ -83,21 +83,16 @@ async def reset():
 
 @app.get('/getScore', response_model=schemas.GetScore)
 async def reset(db: AsyncSession = Depends(get_db)):
-	print("1. 開始 resetGame")
-
 	result = await db.execute(
-		select(DaVinciCodeResult).order_by(DaVinciCodeResult.guess_time.asc()).limit(1)
+		select(DaVinciCodeResult).order_by(DaVinciCodeResult.guess_time.desc()).limit(1)
 	)
 	best = result.scalar_one_or_none()
 	best_time = schemas.DaVinciCodeResultBase.from_orm(best) if best else None
 
 	score_list_result = await db.execute(
-		select(DaVinciCodeResult).order_by(DaVinciCodeResult.guess_time.asc()).limit(5)
+		select(DaVinciCodeResult).order_by(DaVinciCodeResult.guess_time.desc()).limit(5)
 	)
 	score_list = score_list_result.scalars().all()
-	print("2. DB execute 完成")
-	print("3. best:", score_list_result)
-	print("4. best:", score_list)
 
 	return {
 		'best_time': best_time,

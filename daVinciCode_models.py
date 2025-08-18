@@ -1,7 +1,7 @@
 import uuid
 from sqlalchemy import Column, String, Integer, DateTime
 from datetime import datetime
-from database import Base  # 用同一個 Base
+from database import Base
 
 class DaVinciCodeResult(Base):
 	__tablename__ = "daVinciCode_results"

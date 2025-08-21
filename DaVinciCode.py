@@ -54,6 +54,7 @@ async def check_name(
 ):
 	print("1. 開始 resetGame")
 	result = await db.execute( select(DaVinciCodeResult).where(DaVinciCodeResult.name == data.name) )
+	print("2. 開始 resetGame", result)
 	existing = result.scalar_one_or_none()
 	if existing:
 		return {
